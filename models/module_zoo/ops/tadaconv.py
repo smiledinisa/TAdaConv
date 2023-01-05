@@ -126,12 +126,13 @@ class TAdaConv2d(nn.Module):
         """
         _, _, c_out, c_in, kh, kw = self.weight.size()
         b, c_in, t, h, w = x.size()
-        x = x.permute(0,2,1,3,4).reshape(1,-1,h,w)
+        x = x.permute(0,2,1,3,4).reshape(1,-1,h,w)  #1, BTC, H,W 将bc 当作 C_out, T 当作 minibatch
 
         if self.cal_dim == "cin":
             # w_alpha: B, C, T, H(1), W(1) -> B, T, C, H(1), W(1) -> B, T, 1, C, H(1), W(1)
             # corresponding to calibrating the input channel
             weight = (alpha.permute(0,2,1,3,4).unsqueeze(2) * self.weight).reshape(-1, c_in//self.groups, kh, kw)
+            # weight shape :  BT, C_in, K, K
         elif self.cal_dim == "cout":
             # w_alpha: B, C, T, H(1), W(1) -> B, T, C, H(1), W(1) -> B, T, C, 1, H(1), W(1)
             # corresponding to calibrating the input channel
@@ -143,6 +144,7 @@ class TAdaConv2d(nn.Module):
             # there is no bias term in the convs
             # hence the performance with bias is not validated
             bias = self.bias.repeat(b, t, 1).reshape(-1)
+        # x : 1, BTC, H,W   weight:BTCout,Cin,K,K  ->  groups = BT  -> OUT: 1, BTCout,H,W
         output = F.conv2d(
             x, weight=weight, bias=bias, stride=self.stride[1:], padding=self.padding[1:],
             dilation=self.dilation[1:], groups=self.groups * b * t)
